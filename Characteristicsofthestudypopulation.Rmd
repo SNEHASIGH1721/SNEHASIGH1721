@@ -1,0 +1,132 @@
+---
+title: 'Characteristics of the study population '
+output:
+  word_document: default
+  html_document: default
+date: "2024-05-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+getwd()
+load("Datafiltered31NEHA.RData")
+ls()
+filtered_data31$DPHP_cr<- NULL
+filtered_data31$BDCPP_cr<- NULL
+filtered_data31$BCPP_cr<- NULL
+filtered_data31$BCEP_cr<- NULL
+filtered_data31$DBUP_cr<- NULL
+filtered_data31$logDPHP<- NULL
+filtered_data31$logBDCPP<- NULL
+filtered_data31$logBCPP<- NULL
+filtered_data31$logBCEP<- NULL
+filtered_data31$logDBUP<- NULL
+filtered_data31$DPHP<- NULL
+filtered_data31$BDCPP<- NULL
+filtered_data31$BCPP<- NULL
+filtered_data31$BCEP<- NULL
+filtered_data31$DBUP<- NULL
+filtered_data31$Urinary_creatinine_log <- log(filtered_data31$Urinary_creatinine)
+filtered_data31$RA_status_binary <- ifelse(filtered_data31$RA_status == "RA", 1, 0)
+filtered_data31$Urinary_creatinine<-NULL
+```
+```{r}
+# Assuming 'filtered_data31' is your dataframe
+require(caret)
+```
+
+
+```{r}
+require(tableone)
+# converting the metabolites into the quarters
+require(dplyr)
+#1 DPHP_cr_In
+filtered_data31 <- filtered_data31 %>%
+  mutate(DPHP_quantiled = cut(DPHP_cr_ln, 
+                              breaks = quantile(DPHP_cr_ln, probs = 0:4/4, na.rm = TRUE),
+                              include.lowest = TRUE, 
+                              labels = c("Q1", "Q2", "Q3", "Q4")))
+#2 BDCPP_cr_ln
+filtered_data31 <- filtered_data31 %>%
+  mutate(BDCPP_quantiled = cut(BDCPP_cr_ln, 
+                               breaks = quantile(BDCPP_cr_ln, probs = 0:4/4, na.rm = TRUE),
+                               include.lowest = TRUE, 
+                               labels = c("Q1", "Q2", "Q3", "Q4")))
+#3 BCPP_cr_ln
+filtered_data31 <- filtered_data31 %>%
+  mutate(BCPP_quantiled = cut(BCPP_cr_ln, 
+                              breaks = quantile(BCPP_cr_ln, probs = 0:4/4, na.rm = TRUE),
+                              include.lowest = TRUE, 
+                              labels = c("Q1", "Q2", "Q3", "Q4")))
+#4 BCEP_cr_ln
+filtered_data31 <- filtered_data31 %>%
+  mutate(BCEP_quantiled = cut(BCEP_cr_ln, 
+                              breaks = quantile(BCEP_cr_ln, probs = 0:4/4, na.rm = TRUE),
+                              include.lowest = TRUE, 
+                              labels = c("Q1", "Q2", "Q3", "Q4")))
+#5 DBUP_cr_ln
+filtered_data31 <- filtered_data31 %>%
+  mutate(DBUP_quantiled = cut(DBUP_cr_ln, 
+                              breaks = quantile(DBUP_cr_ln, probs = 0:4/4, na.rm = TRUE),
+                              include.lowest = TRUE,
+                              labels = c("Q1", "Q2", "Q3", "Q4")))
+```
+
+
+```{r}
+#filtered_data31$Urinary_creatinine<-NULL
+require(survey)
+svy_design <- svydesign(ids = ~PSU, 
+                        strata = ~STRATA, 
+                        weights = ~W.MEC, 
+                        nest = TRUE, 
+                        data=filtered_data31)
+summary(weights(svy_design))
+#please note we are using w.MEC weight because we are using the lab components in the analysis
+
+#crude model and fully adjusted model
+require(jtools)
+require(ggstance)
+require(broom.mixed)
+require(huxtable)
+require(Publish)
+require(dplyr)
+require(survey)
+require(car)#for VIF
+names(filtered_data31)
+summary(filtered_data31)
+str(filtered_data31)
+#testing the associations
+chisq.gender<-chisq.test(filtered_data31$RA_status_binary, filtered_data31$Gender)
+chisq.gender
+chisq.age<-chisq.test(filtered_data31$RA_status_binary, filtered_data31$Age.cat)
+chisq.age
+chisq.eth<-chisq.test(filtered_data31$RA_status_binary, filtered_data31$Ethnicity)
+chisq.eth
+```
+```{r}
+##testing association with survey features
+svychisq(~RA_status_binary+Gender, design = svy_design, statistic = "Chisq")
+svychisq(~RA_status_binary+Age.cat, design = svy_design, statistic = "Chisq")
+svychisq(~RA_status_binary+Marital_status, design = svy_design, statistic = "Chisq")
+```
+```{r}
+vars2=c("Gender","Ethnicity","Marital_status","Education",
+       "Citizenship","Alcohol","Diabetes","Smoking","Age.cat","Activity_level","PIR","BMI","DPHP_cr_ln","BDCPP_cr_ln","BCPP_cr_ln","BCEP_cr_ln","DBUP_cr_ln")
+kableone<-function(x, ...){
+  capture.output(x <-print(x,showAllLevels=TRUE, padColnames = TRUE, insertLevel = TRUE))
+  knitr::kable(x,...)
+}
+Finalmanu<- kableone(svyCreateTableOne(var=vars2, strata="RA_status", data= svy_design, test=TRUE))
+Finalmanu
+##
+Finalgender<- kableone(svyCreateTableOne(var=vars2, strata="Gender", data= svy_design, test=TRUE))
+Finalgender
+##
+Finalage<- kableone(svyCreateTableOne(var=vars2, strata="Age.cat", data= svy_design, test=TRUE))
+Finalage
+```
+

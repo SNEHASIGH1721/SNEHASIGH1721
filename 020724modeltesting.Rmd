@@ -1,0 +1,165 @@
+---
+title: "Model Teasting"
+author: "Sneha Singh"
+date: "2024-02-07"
+output: html_document
+---
+
+
+```{r}
+load("Datafiltered31UC.RData")
+ls()
+```
+```{r}
+# Set up the graphics parameters to have 5 plots in one column (or change to `mfrow = c(3, 2)` for a 3x2 layout, for example)
+par(mfrow = c(3, 1))
+
+# Now plot each histogram one after the other. They will be arranged into the layout specified above.
+hist(filtered_data31$DPHP_ug_g_log10, main="Histogram of DPHP_ug_g_log10", xlab="DPHP_ug_g_log10", col="blue")
+hist(filtered_data31$BDCPP_ug_glog10, main="Histogram of BDCPP_ug_g_log10", xlab="BDCPP_ug_g_log10", col="red")
+hist(filtered_data31$BCPP_ug_g_log10, main="Histogram of BCPP_ug_g_log10", xlab="BCPP_ug_g_log10", col="green")
+#hist(filtered_data31$BCEP_ug_g_log10, main="Histogram of BCEP_ug_g_log10", xlab="BCEP_ug_g_log10", col="purple")
+#hist(filtered_data31$DBUP_ug_g_log10, main="Histogram of DBUP_ug_g_log10", xlab="DBUP_ug_g_log10", col="orange")
+```
+```{r}
+# Set up the graphics parameters to have 5 plots in one column (or change to `mfrow = c(3, 2)` for a 3x2 layout, for example)
+par(mfrow = c(2, 1))
+
+# Now plot each histogram one after the other. They will be arranged into the layout specified above.
+hist(filtered_data31$BCEP_ug_g_log10, main="Histogram of BCEP_ug_g_log10", xlab="BCEP_ug_g_log10", col="purple")
+hist(filtered_data31$DBUP_ug_g_log10, main="Histogram of DBUP_ug_g_log10", xlab="DBUP_ug_g_log10", col="orange")
+```
+```{r}
+# Assuming DPHP_log10, Variable2_log10, Variable3_log10, etc., are the columns in filtered_data31
+# Select only the columns with log10-transformed data
+log10_transformed_variables <- filtered_data31[c("DPHP_ug_g_log10", "BDCPP_ug_glog10", "BCPP_ug_g_log10", "BCEP_ug_g_log10", "DBUP_ug_g_log10")]  # Add more variables as needed
+
+# Calculate the correlation matrix among these variables
+correlation_matrix <- cor(log10_transformed_variables, method = "pearson", use = "pairwise.complete.obs")
+
+# Print the correlation matrix
+print(correlation_matrix)
+# Load the corrplot package
+library(corrplot)
+
+# Assuming 'correlation_matrix' is your correlation matrix computed from log10-transformed variables
+# Visualize the correlation matrix
+corrplot(correlation_matrix, method = "circle", type = "full", order = "hclust",
+         tl.col = "black", tl.srt = 45, addCoef.col = "black")
+title(main = "Correlation Matrix of creatinine corrected Urinary OPEs ", col.main = "orange", font.main = 2)
+```
+```{r}
+###
+require(tableone)
+vars=c("Gender", "Age", "Ethnicity", "Marital_status", "Education","Citizenship", "DPHP", "BDCPP", "BCPP", "BCEP", "DBUP",
+       "Urinary_creatinine", "Alcohol", "BMI", "Diabetes","Smoking", "Age.cat", 
+       "RA_status", "Activity_level", "PIR", "DPHP_ug_g_log10", "BDCPP_ug_glog10","BCPP_ug_g_log10", "BCEP_ug_g_log10", "DBUP_ug_g_log10")
+tableOne<- CreateTableOne(data=filtered_data31, includeNA = TRUE,
+               vars = vars)
+tableOne
+```
+```{r}
+## identifying collinear predictors
+require(Hmisc)
+sel.names<-c("Gender", "Age", "Ethnicity", "Marital_status", "Education","Citizenship", "DPHP", "BDCPP", "BCPP", "BCEP", "DBUP", 
+             "Urinary_creatinine", "Alcohol", "BMI", "Diabetes","Smoking", "Age.cat", 
+             "RA_status", "Activity_level", "PIR")
+var.cluster<- varclus(~., data=filtered_data31[sel.names])
+plot(var.cluster)
+title(main = "Variable Clustering to identify collinear predictors")
+```
+```{r}
+## exploring the continuous variable relationship 
+## Examining descriptive associations with the dependent variables 
+mean(filtered_data31$DPHP_ug_g_log10[filtered_data31$Gender=="Male"])
+mean(filtered_data31$DPHP_ug_g_log10[filtered_data31$Gender=="Female"])
+##
+mean(filtered_data31$BDCPP_ug_glog10[filtered_data31$Gender=="Male"])
+mean(filtered_data31$BDCPP_ug_glog10[filtered_data31$Gender=="Female"])
+##
+mean(filtered_data31$BCPP_ug_g_log10[filtered_data31$Gender=="Male"])
+mean(filtered_data31$BCPP_ug_g_log10[filtered_data31$Gender=="Female"])
+###
+mean(filtered_data31$BCEP_ug_g_log10[filtered_data31$Gender=="Male"])
+mean(filtered_data31$BCEP_ug_g_log10[filtered_data31$Gender=="Female"])
+##
+mean(filtered_data31$DBUP_ug_g_log10[filtered_data31$Gender=="Male"])
+mean(filtered_data31$DBUP_ug_g_log10[filtered_data31$Gender=="Female"])
+```
+```{r}
+require(survey)
+filtered_data31$RA_status_numeric <- as.numeric(filtered_data31$RA_status == "RA")
+summary(filtered_data31$W.MEC)
+# This will result in a binary numeric variable where RA is 1 and Non-RA is 0
+svy_design <- svydesign(ids = ~PSU, 
+                        strata = ~STRATA, 
+                        weights = ~W.MEC, 
+                        data = filtered_data31, 
+                        nest = TRUE)
+summary(weights(svy_design))
+```
+```{r}
+require(vioplot)
+
+# Assuming your data frame 'filtered_data31' has columns for the urinary metabolites
+# Extract the relevant columns for the metabolites
+metabolites <- filtered_data31[,c("DPHP_ug_g_log10", "BDCPP_ug_glog10", "BCPP_ug_g_log10", "BCEP_ug_g_log10", "DBUP_ug_g_log10")]
+
+# Create a list of metabolite data to be used in the violin plot
+metabolite_list <- list(metabolites$DPHP_ug_g_log10, metabolites$BDCPP_ug_glog10, metabolites$BCPP_ug_g_log10, metabolites$BCEP_ug_g_log10,metabolites$DBUP_ug_g_log10)
+
+# Create the violin plot
+vioplot(metabolite_list, names = c("DPHP_ug_g_log10", "BDCPP_ug_glog10", "BCPP_ug_g_log10", "BCEP_ug_g_log10", "DBUP_ug_g_log10"),
+        col = rainbow(5),
+        main = "Distribution of urinary concentrations of FR metabolites among the whole population")
+
+# Adding labels
+xlabel <- "Metabolite of OPFRs"
+ylabel <- "Concentration in ug/L"
+title <- "Distribution of urinary concentrations of FR metabolites among the whole population."
+```
+```{r}
+require(kableExtra)
+vars2=c("Gender", "Age.cat", "Ethnicity", "Marital_status", "Education","Citizenship", "Alcohol", "BMI", "Diabetes","Smoking", "Age.cat", 
+       "RA_status", "Activity_level", "PIR")
+
+kableone<- function(x, ...) {
+  capture.output(x<- print(x, showALLLevels=TRUE, padColnames = TRUE, insertLevel = TRUE))
+  knitr::kable(x, ...)
+}
+kableone(svyCreateCatTable(var=vars2, strata = "RA_status", data=svy_design, test= TRUE))
+
+```
+Logistic regression model using survey features 
+```{r}
+require(survey)
+require(Publish)
+formula1<- as.formula(I(RA_status=="RA")~Gender + Citizenship+Alcohol+ BMI+ Diabetes+Smoking+PIR+Activity_level+Age.cat+Ethnicity)
+fit1<- svyglm(formula1,
+              design=svy_design,
+              family = binomial(link="logit"))
+publish(fit1)
+```
+```{r}
+#running backward elimination method based on AIC
+#Akaike Information Criteria
+require(MASS)
+scope<- list(upper= ~ Gender + Citizenship+Alcohol+ BMI+ Diabetes+Smoking+PIR+Activity_level+Age.cat+Ethnicity,
+             lower= ~ Gender + Age.cat +  Diabetes)
+fit3<-step(fit1, scope=scope, trace=FALSE,
+           k=2, direction="backward")
+publish(fit3)
+```
+```{r}
+## now we are checking the interaction term
+fit4<- update(fit3, .~. + interaction(RA_status, Diabetes))
+anova(fit3, fit4)
+```
+
+
+
+
+
+
+
+
